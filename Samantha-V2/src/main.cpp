@@ -1,5 +1,19 @@
 #include "main.h"
 #include "pros/misc.h"
+#include <cmath>
+#include <algorithm>
+#include <string>
+
+int gear = 0;
+float gearValue[] = {0.3, 0.6, 1};
+
+void gearUp() {
+	gear = std::clamp<int>(gear + 1, 0, sizeof(gearValue));
+}
+
+void gearDown() {
+	gear = std::clamp<int>(gear - 1, 0, sizeof(gearValue));
+}
 
 /**
  * A callback function for LLEMU's center button.
@@ -7,6 +21,7 @@
  * When this callback is fired, it will toggle line 2 of the LCD text between
  * "I was pressed!" and nothing.
  */
+
 void on_center_button() {
 	static bool pressed = false;
 	pressed = !pressed;
@@ -85,11 +100,16 @@ void opcontrol() {
 		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
 		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);  // Prints status of the emulated screen LCDs
 
-		// Arcade control scheme
-		int left = master.get_analog(ANALOG_LEFT_Y);    // Gets amount forward/backward from left joystick
-		int right = master.get_analog(ANALOG_RIGHT_Y);  // Gets the turn left/right from right joystick
-		left_mg.move(left);                      // Sets left motor voltage
-		right_mg.move(right);                     // Sets right motor voltage
-		pros::delay(20);                               // Run for 20 ms then update
+		if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2)) {
+			gearUp();
+		} else if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_L2)) {
+			gearDown();
+		}
+
+		master.set_text(0, 0, std::to_string(gear + 1));
+
+		left_mg.move(std::clamp<int>(std::ceil(master.get_analog(ANALOG_LEFT_Y) * gearValue[gear]), -127, 127));
+		right_mg.move(std::clamp<int>(std::ceil(master.get_analog(ANALOG_RIGHT_Y) * gearValue[gear]), -127, 127));
+		pros::delay(10);
 	}
 }
